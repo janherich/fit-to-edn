@@ -16,7 +16,7 @@
       (recur (<!! ch) v)
       last-val)))
 
-(defn- dropping-window-conj
+(defn- update-window
   [[sum queue] window-size item]
   (let [conjoined (conj queue item)
         summed (+ sum item)]
@@ -31,7 +31,7 @@
     (let [avg (volatile! [0 (clojure.lang.PersistentQueue/EMPTY)])]
       (completing
        (fn [result input]
-         (let [[avg-sum avg-window] (vswap! avg dropping-window-conj window-size input)]
+         (let [[avg-sum avg-window] (vswap! avg update-window window-size input)]
            (if (= window-size (count avg-window))
              (xf result (/ avg-sum window-size))
              result)))))))
