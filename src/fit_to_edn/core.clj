@@ -16,23 +16,24 @@
       (recur (<!! ch) v)
       last-val)))
 
-(defn- dropping-conj
-  [queue window-size item]
-  (let [conjoined (conj queue item)]
+(defn- dropping-window-conj
+  [[sum queue] window-size item]
+  (let [conjoined (conj queue item)
+        summed (+ sum item)]
     (if (> (count conjoined) window-size)
-      (pop conjoined)
-      conjoined)))
+      [(- summed (first conjoined)) (pop conjoined)]
+      [summed conjoined])))
 
 (defn avg-transducer
   "Stateful transducer returning average over n consecutive numbers from numbers input"
   [window-size]
   (fn [xf]
-    (let [avg-window (volatile! (clojure.lang.PersistentQueue/EMPTY))]
+    (let [avg (volatile! [0 (clojure.lang.PersistentQueue/EMPTY)])]
       (completing
        (fn [result input]
-         (let [new-avg (vswap! avg-window dropping-conj window-size input)]
-           (if (= window-size (count new-avg))
-             (xf result (/ (reduce + new-avg) window-size))
+         (let [[avg-sum avg-window] (vswap! avg dropping-window-conj window-size input)]
+           (if (= window-size (count avg-window))
+             (xf result (/ avg-sum window-size))
              result)))))))
 
 (defn max-transducer
