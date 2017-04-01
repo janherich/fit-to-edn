@@ -8,13 +8,22 @@ All processing is defined as transducer application over channels
 
 ## Usage
 
-Finding maximal 1min power ever achieved in the directory containing .fit records
+Finding maximal 1min power ever achieved in the directory containing .fit records:
 
 ```clj
 fit-to-edn.core> (max-power-interval
                   (list-fit-files "/Users/janherich/Documents/Training-data")
                   60)
-566.56665
+566.56665 watt
+```
+
+The same for speed:
+
+```clj
+fit-to-edn.core> (max-power-interval
+                  (list-fit-files "/Users/janherich/Documents/Training-data")
+                  60)
+60.1 km/h
 ```
 
 ## License

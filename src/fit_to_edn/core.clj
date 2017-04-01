@@ -127,17 +127,25 @@
                  {:timestamp 3
                   :speed 2})))
 
-(defn max-power-interval
-  "Churn through provided fit files and find the maximum power attained over interval specified
+(defn max-interval
+  "Churn through provided fit files and find the maximum metrics attained over interval specified
    in seconds"
-  [fit-files interval]
-  (->> fit-files
-       (pmap (comp last-val
-                   (partial read-fit-records (comp
-                                              (combine-records merge)
-                                              (keep :power)
-                                              (avg-transducer interval)
-                                              (max-transducer)))))
-       (filter identity)
-       (reduce max)
-       float))
+  [metrics format-fn fit-files interval]
+  (let [base-transducers [(combine-records merge) (keep metrics)]
+        process-transducers (if (= interval 1)
+                              [(max-transducer)]
+                              [(avg-transducer interval) (max-transducer)])
+        xf (apply comp (concat base-transducers process-transducers))]
+    (->> fit-files
+         (pmap (comp last-val
+                     (partial read-fit-records xf)))
+         (reduce max)
+         float
+         format-fn)))
+
+(def max-power-interval (partial max-interval
+                                 :power
+                                 (partial format "%.3f watt")))
+(def max-speed-interval (partial max-interval
+                                 #(some->> % :speed (* 3.6))
+                                 (partial format "%.3f km/h")))
