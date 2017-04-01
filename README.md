@@ -26,7 +26,7 @@ fit-to-edn.core> (max-speed
 60.100 km/h
 ```
 
-Overall maximum average speed ever achieved
+Overall best average speed ever achieved
 
 ```clj
 fit-to-edn.core> (max-speed
