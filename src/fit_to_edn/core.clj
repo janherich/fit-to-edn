@@ -1,7 +1,8 @@
 (ns fit-to-edn.core
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async :refer [chan <!! >!! close!]]
-            [fit-to-edn.record :as record])
+            [fit-to-edn.record :as record]
+            [fit-to-edn.transducers :as t])
   (:import [java.io File FileInputStream InputStream]
            [com.garmin.fit Decode MesgBroadcaster RecordMesg RecordMesgListener FitRuntimeException]))
 
@@ -15,68 +16,6 @@
     (if v
       (recur (<!! ch) v)
       last-val)))
-
-(defn- update-window
-  [[sum queue] window-size item]
-  (let [conjoined (conj queue item)
-        summed (+ sum item)]
-    (if (> (count conjoined) window-size)
-      [(- summed (first conjoined)) (pop conjoined)]
-      [summed conjoined])))
-
-(defn avg-transducer
-  "Stateful transducer returning average over n consecutive numbers from numbers input"
-  [window-size]
-  (fn [xf]
-    (let [avg (volatile! [0 (clojure.lang.PersistentQueue/EMPTY)])]
-      (completing
-       (fn [result input]
-         (let [[avg-sum avg-window] (vswap! avg update-window window-size input)]
-           (if (= window-size (count avg-window))
-             (xf result (/ avg-sum window-size))
-             result)))))))
-
-(defn max-transducer
-  "Stateful transducer returning maximum item from numbers input"
-  []
-  (fn [xf]
-    (let [max (volatile! 0)]
-      (completing
-       (fn [result input]
-         (let [prev-max @max]
-           (if (> input prev-max)
-             (do (vreset! max input)
-                 (xf result input))
-             (xf result prev-max))))))))
-
-(defn combine-records
-  "Stateful transducer combining records with the same timestamp"
-  ([combine-fn]
-   (fn [xf]
-     (let [previous-record (volatile! {})]
-       (fn
-         ([] (xf))
-         ([result]
-          ;; completing arity needs to reduce the last accumulated record
-          (let [p-r @previous-record
-                result (if (empty? p-r)
-                         result
-                         (do
-                           (vreset! previous-record {})
-                           (unreduced (xf result p-r))))]
-            (xf result)))
-         ([result input]
-          (let [{:keys [timestamp] :as prior-record} @previous-record]
-            (if (or (not timestamp)
-                    (= timestamp (:timestamp input)))
-              ;; accumulate when timestamp is not yet set/not changing
-              (do (vswap! previous-record combine-fn input)
-                  result)
-              ;; whenever new timestamp comes in, reduce the accumulated record
-              (do (vreset! previous-record input)
-                  (xf result prior-record)))))))))
-  ([combine-fn coll]
-   (sequence (combine-records combine-fn) coll)))
 
 (defn read-fit-records
   "Reads records from fit binary file"
@@ -127,25 +66,42 @@
                  {:timestamp 3
                   :speed 2})))
 
-(defn max-interval
-  "Churn through provided fit files and find the maximum metrics attained over interval specified
-   in seconds"
-  [metrics format-fn fit-files interval]
-  (let [base-transducers [(combine-records merge) (keep metrics)]
-        process-transducers (if (= interval 1)
-                              [(max-transducer)]
-                              [(avg-transducer interval) (max-transducer)])
-        xf (apply comp (concat base-transducers process-transducers))]
-    (->> fit-files
-         (pmap (comp last-val
-                     (partial read-fit-records xf)))
-         (reduce max)
-         float
-         format-fn)))
+(defn- process-files
+  [xf format-fn fit-files]
+  (->> fit-files
+       (pmap (comp last-val
+                   (partial read-fit-records xf)))
+       (filter identity) ;; filter out records which crashed/did return nil during processing
+       (reduce max)
+       float
+       format-fn))
 
-(def max-power-interval (partial max-interval
-                                 :power
-                                 (partial format "%.3f watt")))
-(def max-speed-interval (partial max-interval
-                                 #(some->> % :speed (* 3.6))
-                                 (partial format "%.3f km/h")))
+(defn query-max
+  "Churn through provided fit files and find the maximum metrics attained over interval
+   specified in seconds, or if interval is not specified, it's average over whole activity"
+  ([metrics format-fn fit-files]
+   (query-max metrics format-fn fit-files nil))
+  ([metrics format-fn fit-files interval]
+   (let [base-transducers [(t/combine-records merge) (keep metrics)]
+         process-transducers (condp = interval
+                               nil [(t/avg-transducer)]
+                               1   [(t/max-transducer)]
+                               [(t/avg-transducer interval) (t/max-transducer)])
+         xf (apply comp (concat base-transducers process-transducers))]
+     (process-files xf format-fn fit-files))))
+
+(defn- moving
+  [metrics]
+  (fn [{:keys [speed] :as data}]
+    (when (and (metrics data)
+               speed
+               (> speed 0))
+      (metrics data))))
+
+(def max-power (partial query-max
+                        :power
+                        (partial format "%.3f watt")))
+
+(def max-speed (partial query-max
+                        #(some->> % :speed (* 3.6))
+                        (partial format "%.3f km/h")))
