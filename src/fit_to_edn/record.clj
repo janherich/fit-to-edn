@@ -6,9 +6,14 @@
 (def ^:private fields
   #{RecordMesg/TimestampFieldNum
     RecordMesg/AltitudeFieldNum
+    RecordMesg/GradeFieldNum
     RecordMesg/SpeedFieldNum
+    RecordMesg/CadenceFieldNum
     RecordMesg/PowerFieldNum
-    RecordMesg/TemperatureFieldNum})
+    RecordMesg/HeartRateFieldNum
+    RecordMesg/TemperatureFieldNum
+    RecordMesg/PositionLatFieldNum
+    RecordMesg/PositionLongFieldNum})
 
 (defn parse-record-mesg
   [^RecordMesg mesg]

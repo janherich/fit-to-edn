@@ -2,14 +2,15 @@
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async :refer [chan <!! >!! close!]]
             [fit-to-edn.record :as record]
-            [fit-to-edn.transducers :as t])
+            [fit-to-edn.queries :as q]
+            [fit-to-edn.format :as f])
   (:import [java.io File FileInputStream InputStream]
            [com.garmin.fit Decode MesgBroadcaster RecordMesg RecordMesgListener FitRuntimeException]))
 
 (set! *warn-on-reflection* true)
 
 (defn last-val
-  "Exhausts channel, returning the last value taken from it"
+  "Exhausts channel, returning the last value taken from it."
   [ch]
   (loop [v (<!! ch)
          last-val v]
@@ -18,7 +19,7 @@
       last-val)))
 
 (defn read-fit-records
-  "Reads records from fit binary file"
+  "Reads records from fit binary file."
   ([^File fit]
    (read-fit-records nil fit))
   ([xf ^File fit]
@@ -41,7 +42,7 @@
      out)))
 
 (defn list-fit-files
-  "Returns sequence of fit files"
+  "Returns sequence of fit files."
   [directory-path]
   (->> directory-path
        io/file
@@ -49,59 +50,30 @@
        (filter (fn [^File fit]
                  (re-find #".*.fit" (.getName fit))))))
 
-(comment
-  "Bryton fit records may include multiple consecutive records with the same timestamp
-   but different attrs, so we should merge them before further processing"
-  (def records '({:timestamp 1}
-                 {:timestamp 1
-                  :power 0}
-                 {:timestamp  1
-                  :speed  2}
-                 {:timestamp 1
-                  :temperature 20}
-                 {:timestamp 2
-                  :power 1}
-                 {:timestamp  2
-                  :speed 1}
-                 {:timestamp 3
-                  :speed 2})))
+(defn query-file
+  "Queries one file with specified query-transducer, which is expected to return just
+  single result. If format-fn is specified, final result will be run through the format-fn."
+  ([xf fit-file]
+   (query-file xf fit-file nil))
+  ([xf fit-file format-fn]
+   (when-let [result (-> (read-fit-records xf fit-file)
+                         last-val)]
+     (cond-> result
+       format-fn format-fn))))
 
-(defn- process-files
-  [xf format-fn fit-files]
-  (->> fit-files
-       (pmap (comp last-val
-                   (partial read-fit-records xf)))
-       (filter identity) ;; filter out records which crashed/did return nil during processing
-       (reduce max)
-       float
-       format-fn))
-
-(defn query-max
-  "Churn through provided fit files and find the maximum metrics attained over interval
-   specified in seconds, or if interval is not specified, it's average over whole activity"
-  ([metrics format-fn fit-files]
-   (query-max metrics format-fn fit-files nil))
-  ([metrics format-fn fit-files interval]
-   (let [base-transducers [(t/combine-records merge) (keep metrics)]
-         process-transducers (condp = interval
-                               nil [(t/avg-transducer)]
-                               1   [(t/max-transducer)]
-                               [(t/avg-transducer interval) (t/max-transducer)])
-         xf (apply comp (concat base-transducers process-transducers))]
-     (process-files xf format-fn fit-files))))
-
-(defn- moving
-  [metrics]
-  (fn [{:keys [speed] :as data}]
-    (when (and (metrics data)
-               speed
-               (> speed 0))
-      (metrics data))))
-
-(def max-power (partial query-max
-                        :power
-                        (partial format "%.3f watt")))
-
-(def max-speed (partial query-max
-                        #(some->> % :speed (* 3.6))
-                        (partial format "%.3f km/h")))
+(defn query-files
+  "Queries multiple files with specified query-transducer, which is expected to return
+  just single result (for each file). Results are returned as sequence of
+  [query-result file-object] tuples, if aggregate-fn is specified, results will be
+  passed to it."
+  ([xf fit-files]
+   (query-files xf nil nil fit-files))
+  ([xf aggregate-fn fit-files]
+   (query-files xf aggregate-fn nil fit-files))
+  ([xf aggregate-fn format-fn fit-files]
+   (when-let [results (->> fit-files
+                           (pmap (juxt (partial query-file xf) identity))
+                           (filter (comp identity first)))]
+     (cond-> results
+       aggregate-fn aggregate-fn
+       format-fn format-fn))))

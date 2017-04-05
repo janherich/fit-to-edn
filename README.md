@@ -8,30 +8,50 @@ All processing is defined as transducer application over channels
 
 ## Usage
 
-Finding maximal 1min power ever achieved in the directory containing .fit records:
+Listing some examples how to use the tool:
+
+1. Finding maximal 1min power ever achieved in the directory containing .fit records:
 
 ```clj
-fit-to-edn.core> (max-power
-                  (list-fit-files "/Users/janherich/Documents/Training-data")
-                  60)
+fit-to-edn.core> (query-files
+                  (comp q/power (q/max-average-interval 60))
+                  q/max-aggregate
+                  (f/format-query-result f/power)
+                  (list-fit-files "/Users/janherich/Documents/Training-data"))
 566.567 watt
 ```
 
-The same for speed:
+2. The same for speed, but now we also want to know the activity where it happened:
 
 ```clj
-fit-to-edn.core> (max-speed
-                  (list-fit-files "/Users/janherich/Documents/Training-data")
-                  60)
-60.100 km/h
+fit-to-edn.core> (query-files
+                  (comp q/speed (q/max-average-interval 60))
+                  q/max-aggregate
+                  (f/format-query-result f/speed-kmh #(.getName %))
+                  (list-fit-files "/Users/janherich/Documents/Training-data"))
+{:query-result 60.806 km/h :activity "160726090112.fit"}
 ```
 
-Overall best average speed ever achieved
+3. Finding maximal normalized-power ever achieved, we want to know the activity as well:
 
 ```clj
-fit-to-edn.core> (max-speed
+fit-to-edn.core> (query-files
+                  (comp q/speed (q/max-average-interval 60))
+                  q/max-aggregate
+                  (f/format-query-result f/speed-kmh #(.getName %))
                   (list-fit-files "/Users/janherich/Documents/Training-data"))
-38.578 km/h
+{:query-result "304.144 watt", :activity "160820193938.fit"}
+```
+
+4. Overall best average moving speed ever achieved
+
+```clj
+fit-to-edn.core> (query-files
+                  (comp q/moving-speed q/average)
+                  q/max-aggregate
+                  (f/format-query-result f/speed-kmh)
+                  (list-fit-files "/Users/janherich/Documents/Training-data"))
+39.077 km/h
 ```
 
 ## License
