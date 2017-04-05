@@ -36,9 +36,9 @@ fit-to-edn.core> (query-files
 
 ```clj
 fit-to-edn.core> (query-files
-                  (comp q/speed (q/max-average-interval 60))
+                  (comp q/power q/normalized-average)
                   q/max-aggregate
-                  (f/format-query-result f/speed-kmh #(.getName %))
+                  (f/format-query-result f/power #(.getName %))
                   (list-fit-files "/Users/janherich/Documents/Training-data"))
 {:query-result "304.144 watt", :activity "160820193938.fit"}
 ```
