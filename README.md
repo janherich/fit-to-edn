@@ -29,7 +29,7 @@ fit-to-edn.core> (query-files
                   q/max-aggregate
                   (f/format-query-result f/speed-kmh #(.getName %))
                   (list-fit-files "/Users/janherich/Documents/Training-data"))
-{:query-result 60.806 km/h :activity "160726090112.fit"}
+{:query-result "60.806 km/h" :activity "160726090112.fit"}
 ```
 
 3. Finding maximal normalized-power ever achieved, we want to know the activity as well:
