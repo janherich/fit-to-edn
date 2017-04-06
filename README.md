@@ -8,7 +8,8 @@ All processing is defined as transducer application over channels
 
 ## Usage
 
-Listing some examples how to use the tool:
+Clone the project, and run `lein repl` in the project root, the repl will start
+in the `fit-to-edn.core` namespace by default and you can start experimenting.
 
 1. Finding maximal 1min power ever achieved in the directory containing .fit records:
 
