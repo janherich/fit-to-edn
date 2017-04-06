@@ -53,9 +53,9 @@
 (defn query-file
   "Queries one file with specified query-transducer, which is expected to return just
   single result. If format-fn is specified, final result will be run through the format-fn."
-  ([xf fit-file]
-   (query-file xf fit-file nil))
-  ([xf fit-file format-fn]
+  ([fit-file xf]
+   (query-file fit-file xf nil))
+  ([fit-file xf format-fn]
    (when-let [result (-> (read-fit-records xf fit-file)
                          last-val)]
      (cond-> result
@@ -66,13 +66,13 @@
   just single result (for each file). Results are returned as sequence of
   [query-result file-object] tuples, if aggregate-fn is specified, results will be
   passed to it."
-  ([xf fit-files]
-   (query-files xf nil nil fit-files))
-  ([xf aggregate-fn fit-files]
-   (query-files xf aggregate-fn nil fit-files))
-  ([xf aggregate-fn format-fn fit-files]
+  ([fit-files xf]
+   (query-files fit-files xf nil nil))
+  ([fit-files xf aggregate-fn]
+   (query-files fit-files xf aggregate-fn nil))
+  ([fit-files xf aggregate-fn format-fn]
    (when-let [results (->> fit-files
-                           (pmap (juxt (partial query-file xf) identity))
+                           (pmap (juxt #(query-file % xf) identity))
                            (filter (comp identity first)))]
      (cond-> results
        aggregate-fn aggregate-fn

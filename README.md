@@ -15,10 +15,10 @@ in the `fit-to-edn.core` namespace by default and you can start experimenting.
 
 ```clj
 fit-to-edn.core> (query-files
+                  (list-fit-files "/Users/janherich/Documents/Training-data")
                   (comp q/power (q/max-average-interval 60))
                   q/max-aggregate
-                  (f/format-query-result f/power)
-                  (list-fit-files "/Users/janherich/Documents/Training-data"))
+                  (f/format-query-result f/power))
 566.567 watt
 ```
 
@@ -26,10 +26,10 @@ fit-to-edn.core> (query-files
 
 ```clj
 fit-to-edn.core> (query-files
+                  (list-fit-files "/Users/janherich/Documents/Training-data")
                   (comp q/speed (q/max-average-interval 60))
                   q/max-aggregate
-                  (f/format-query-result f/speed-kmh #(.getName %))
-                  (list-fit-files "/Users/janherich/Documents/Training-data"))
+                  (f/format-query-result f/speed-kmh #(.getName %)))
 {:query-result "60.806 km/h" :activity "160726090112.fit"}
 ```
 
@@ -37,10 +37,10 @@ fit-to-edn.core> (query-files
 
 ```clj
 fit-to-edn.core> (query-files
+                  (list-fit-files "/Users/janherich/Documents/Training-data")
                   (comp q/power q/normalized-average)
                   q/max-aggregate
-                  (f/format-query-result f/power #(.getName %))
-                  (list-fit-files "/Users/janherich/Documents/Training-data"))
+                  (f/format-query-result f/power #(.getName %)))
 {:query-result "304.144 watt", :activity "160820193938.fit"}
 ```
 
@@ -48,10 +48,10 @@ fit-to-edn.core> (query-files
 
 ```clj
 fit-to-edn.core> (query-files
+                  (list-fit-files "/Users/janherich/Documents/Training-data")
                   (comp q/moving-speed q/average)
                   q/max-aggregate
-                  (f/format-query-result f/speed-kmh)
-                  (list-fit-files "/Users/janherich/Documents/Training-data"))
+                  (f/format-query-result f/speed-kmh))
 39.077 km/h
 ```
 
